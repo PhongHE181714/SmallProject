@@ -2,6 +2,23 @@
 
 File này ghi lại các thay đổi được thực hiện theo prompt làm thay đổi mã nguồn, cấu hình, script database hoặc kiến trúc dự án. Thêm mục mới nhất lên đầu danh sách.
 
+## 2026-11-06 - Viết lại README và thêm file cấu hình mẫu
+
+Mục đích: Giúp người nhận project chạy được ngay với hướng dẫn rõ ràng từng bước.
+
+Thay đổi:
+- Viết lại `README.md` với hướng dẫn đầy đủ: yêu cầu cài đặt, chạy migration, cấu hình BE/FE và chạy dự án.
+- Thêm `FE/.env.example` — file mẫu biến môi trường FE.
+- Thêm `BE/appsettings.Development.example.json` — file mẫu connection string BE.
+
+File và thư mục bị ảnh hưởng:
+- `README.md`
+- `FE/.env.example`
+- `BE/appsettings.Development.example.json`
+- `CHANGELOG.md`
+
+---
+
 ## 2026-11-06 - Bổ sung đầy đủ các pattern .gitignore
 
 Mục đích: Bổ sung toàn bộ các pattern cần thiết phù hợp với stack .NET + React/Vite của dự án.
