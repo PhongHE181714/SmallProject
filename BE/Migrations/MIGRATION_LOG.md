@@ -6,6 +6,7 @@ Lưu các thay đổi cơ sở dữ liệu trong thư mục này dưới dạng 
 
 | Phiên bản | Script | Mô tả | Ngày áp dụng |
 |---|---|---|---|
+| 202611080001 | `202611080001_CreateFnSaleOutReport.sql` | Tạo hàm bảng `dbo.fnSaleOutReport` tổng hợp số lượng và thành tiền theo sản phẩm trong khoảng ngày. | Chưa áp dụng |
 | 202611060003 | `202611060003_GroupSaleOutProductsByOrder.sql` | Gộp mã phiếu cho các sản phẩm cùng PO, bỏ unique index trên `SaleOutNo` và cập nhật trigger tạo mã theo nhóm đơn. | Chưa áp dụng |
 | 202611060002 | `202611060002_BackfillSaleOutNo.sql` | Gán mã `SaleOutNo` theo tháng `OrderDate` cho các dòng SaleOut hiện có chưa có mã. | Chưa áp dụng |
 | 202611060001 | `202611060001_AddSaleOutNo.sql` | Thêm `SaleOutNo`, unique filtered index và trigger cấp số phiếu `STOyyyyMMxxxx` cho các bản ghi SaleOut mới. | Chưa áp dụng |

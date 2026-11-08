@@ -135,6 +135,7 @@ public sealed class SaleOutsController : ControllerBase
     [Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DownloadRevenueReport(
         [FromQuery] string? timeBegin,
         [FromQuery] string? timeEnd)
@@ -153,6 +154,16 @@ public sealed class SaleOutsController : ControllerBase
         try
         {
             var fileBytes = await _saleOutService.GenerateRevenueReportAsync(parsedTimeBegin, parsedTimeEnd);
+            if (fileBytes is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Status = StatusCodes.Status404NotFound,
+                    Title = "Không có dữ liệu báo cáo doanh thu",
+                    Detail = "Không tìm thấy bản ghi xuất hàng trong khoảng thời gian đã chọn."
+                });
+            }
+
             var fileName = $"bao-cao-doanh-thu-{parsedTimeBegin:yyyyMMdd}-{parsedTimeEnd:yyyyMMdd}.xlsx";
             return File(
                 fileBytes,

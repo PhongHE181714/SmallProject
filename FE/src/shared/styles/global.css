@@ -206,6 +206,7 @@ button, input { font: inherit; }
 .sale-out-order-details .MuiTableHead-root .MuiTableCell-root { background: #edf2ee; font-weight: 700; }
 .sale-out-order-details .MuiTableBody-root .MuiTableCell-root { border-color: #e6ebe7; }
 .sale-out-print-dialog__selection { margin-top: 14px !important; color: #53655a; }
+.sale-out-revenue-report-dialog__dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .sale-out-order-header { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }
 .sale-out-items-editor { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; overflow-x: auto; }
 .sale-out-items-editor__table { min-width: 1050px; }
@@ -543,6 +544,7 @@ button, input { font: inherit; }
 }
 
 @media (max-width: 600px) {
+  .sale-out-revenue-report-dialog__dates { grid-template-columns: 1fr; }
   .product-dialog__grid {
     grid-template-columns: 1fr;
     gap: 14px;

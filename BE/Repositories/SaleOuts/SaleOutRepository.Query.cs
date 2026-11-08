@@ -78,36 +78,11 @@ public sealed partial class SaleOutRepository
        int pageSize)
     {
         const string sql = """
-            ;WITH RevenueItems AS
-            (
-                SELECT product.ProductCode,
-                       product.ProductName,
-                       SUM(COALESCE(saleOut.Quantity, 0)) AS Quantity,
-                       SUM(COALESCE(saleOut.Amount, 0)) AS Amount
-                FROM dbo.SaleOut AS saleOut
-                INNER JOIN dbo.MasterProduct AS product ON product.Id = saleOut.ProductId
-                WHERE saleOut.IsActive = 1
-                  AND saleOut.OrderDate >= @TimeBegin
-                  AND saleOut.OrderDate <= @TimeEnd
-                GROUP BY product.ProductCode, product.ProductName
-            )
-            SELECT COUNT_BIG(1) FROM RevenueItems;
+            SELECT COUNT_BIG(1)
+            FROM dbo.fnSaleOutReport(@StartDate, @EndDate);
 
-            ;WITH RevenueItems AS
-            (
-                SELECT product.ProductCode,
-                       product.ProductName,
-                       SUM(COALESCE(saleOut.Quantity, 0)) AS Quantity,
-                       SUM(COALESCE(saleOut.Amount, 0)) AS Amount
-                FROM dbo.SaleOut AS saleOut
-                INNER JOIN dbo.MasterProduct AS product ON product.Id = saleOut.ProductId
-                WHERE saleOut.IsActive = 1
-                  AND saleOut.OrderDate >= @TimeBegin
-                  AND saleOut.OrderDate <= @TimeEnd
-                GROUP BY product.ProductCode, product.ProductName
-            )
             SELECT ProductCode, ProductName, Quantity, Amount
-            FROM RevenueItems
+            FROM dbo.fnSaleOutReport(@StartDate, @EndDate)
             ORDER BY ProductCode ASC, ProductName ASC
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
            """;
@@ -115,8 +90,8 @@ public sealed partial class SaleOutRepository
         await using var connection = _sqlConnectionFactory.CreateConnection();
         using var results = await connection.QueryMultipleAsync(sql, new
         {
-            TimeBegin = int.Parse(timeBegin.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture),
-            TimeEnd = int.Parse(timeEnd.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture),
+            StartDate = int.Parse(timeBegin.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture),
+            EndDate = int.Parse(timeEnd.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture), System.Globalization.CultureInfo.InvariantCulture),
             Offset = offset,
             PageSize = pageSize
         });

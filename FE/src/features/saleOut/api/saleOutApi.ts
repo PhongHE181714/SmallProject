@@ -41,6 +41,11 @@ export function downloadSaleOutPrintPdf(saleOutNo: string) {
   return getBlob(`/api/sale-outs/print/${encodeURIComponent(saleOutNo)}/pdf`)
 }
 
+export function downloadSaleOutRevenueReport(timeBegin: string, timeEnd: string) {
+  const query = new URLSearchParams({ timeBegin, timeEnd })
+  return getBlob(`/api/sale-outs/revenue-report?${query.toString()}`)
+}
+
 export function createSaleOut(payload: CreateSaleOutRequest) {
   return post<SaleOutCreateResponse, CreateSaleOutRequest>('/api/sale-outs', payload)
 }

@@ -8,7 +8,7 @@ public sealed partial class SaleOutService
 {
     private const int REVENUE_REPORT_QUERY_PAGE_SIZE = 500;
 
-    public async Task<byte[]> GenerateRevenueReportAsync(DateOnly timeBegin, DateOnly timeEnd)
+    public async Task<byte[]?> GenerateRevenueReportAsync(DateOnly timeBegin, DateOnly timeEnd)
     {
         if (timeBegin > timeEnd)
         {
@@ -35,6 +35,11 @@ public sealed partial class SaleOutService
             }
         }
         while (offset < totalItems);
+
+        if (reportItems.Count == 0)
+        {
+            return null;
+        }
 
         return CreateRevenueReportExcel(reportItems, timeBegin, timeEnd);
     }

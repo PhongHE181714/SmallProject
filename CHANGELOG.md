@@ -2,6 +2,58 @@
 
 File này ghi lại các thay đổi được thực hiện theo prompt làm thay đổi mã nguồn, cấu hình, script database hoặc kiến trúc dự án. Thêm mục mới nhất lên đầu danh sách.
 
+## 2026-11-08 - Hiển thị thông báo không có dữ liệu trong popup báo cáo
+
+Mục đích: Giữ thông báo không có bản ghi bên trong popup chọn khoảng ngày báo cáo doanh thu.
+
+Thay đổi:
+- Thay hộp thoại thông báo nổi bằng thông báo thông tin ngay trong popup báo cáo.
+
+File và thư mục bị ảnh hưởng:
+- `FE/src/features/saleOut/components/SaleOutRevenueReportDialog.tsx`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
+## 2026-11-08 - Tích hợp popup xuất báo cáo doanh thu
+
+Mục đích: Cho phép xuất báo cáo doanh thu từ màn Xuất hàng theo khoảng ngày và thông báo rõ khi khoảng ngày không có bản ghi.
+
+Thay đổi:
+- Nối nút báo cáo doanh thu với popup chọn ngày và tải file Excel từ API.
+- Hiển thị thông báo khi không có dữ liệu; API trả 404 và service không tạo workbook trong trường hợp này.
+- Thêm bản dịch tiếng Việt/Anh và bố cục chọn ngày thích ứng trên màn hình hẹp.
+
+File và thư mục bị ảnh hưởng:
+- `BE/Controllers/SaleOutsController.cs`
+- `BE/Services/Interfaces/ISaleOutService.cs`
+- `BE/Services/SaleOuts/SaleOutService.RevenueReport.cs`
+- `FE/src/features/saleOut/api/saleOutApi.ts`
+- `FE/src/features/saleOut/components/SaleOutRevenueReportDialog.tsx`
+- `FE/src/features/saleOut/components/SaleOutView.tsx`
+- `FE/src/i18n/locales.ts`
+- `FE/src/shared/styles/global.css`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
+## 2026-11-08 - Dùng hàm SQL cho báo cáo doanh thu Sale Out
+
+Mục đích: Tách truy vấn tổng hợp báo cáo doanh thu khỏi BE để BE sử dụng hàm SQL `fnSaleOutReport(@StartDate, @EndDate)`.
+
+Thay đổi:
+- Thêm migration tạo hàm bảng `dbo.fnSaleOutReport`, tổng hợp số lượng và thành tiền theo sản phẩm trong khoảng ngày.
+- Chuyển repository báo cáo doanh thu sang gọi hàm SQL cho cả truy vấn đếm và lấy dữ liệu phân trang.
+- Cập nhật nhật ký migration.
+
+File và thư mục bị ảnh hưởng:
+- `BE/Migrations/202611080001_CreateFnSaleOutReport.sql`
+- `BE/Migrations/MIGRATION_LOG.md`
+- `BE/Repositories/SaleOuts/SaleOutRepository.Query.cs`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
 ## 2026-11-06 - Viết lại README và thêm file cấu hình mẫu
 
 Mục đích: Giúp người nhận project chạy được ngay với hướng dẫn rõ ràng từng bước.

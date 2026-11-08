@@ -41,6 +41,7 @@ import CreateSaleOutDialog from './CreateSaleOutDialog'
 import EditSaleOutDialog from './EditSaleOutDialog'
 import ImportSaleOutDialog from './ImportSaleOutDialog'
 import PrintSaleOutDialog from './PrintSaleOutDialog'
+import SaleOutRevenueReportDialog from './SaleOutRevenueReportDialog'
 
 const DEFAULT_PAGE_SIZE = 50
 const MAX_PAGE_SIZE = 200
@@ -76,6 +77,7 @@ export default function SaleOutView() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
+  const [isRevenueReportDialogOpen, setIsRevenueReportDialogOpen] = useState(false)
   const [saleOutToEdit, setSaleOutToEdit] = useState<SaleOutOrderListItem | null>(null)
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
 
@@ -347,6 +349,7 @@ export default function SaleOutView() {
               variant="outlined"
               startIcon={<SummarizeOutlinedIcon />}
               className="product-button product-button--quiet"
+              onClick={() => setIsRevenueReportDialogOpen(true)}
             >
               {t('saleOut.actions.revenueReport')}
             </Button>
@@ -588,6 +591,10 @@ export default function SaleOutView() {
         <PrintSaleOutDialog
           open={isPrintDialogOpen}
           onClose={() => setIsPrintDialogOpen(false)}
+        />
+        <SaleOutRevenueReportDialog
+          open={isRevenueReportDialogOpen}
+          onClose={() => setIsRevenueReportDialogOpen(false)}
         />
       </div>
     </main>
