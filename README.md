@@ -1,11 +1,15 @@
 # SmallProject — Hướng dẫn chạy dự án
 
-Dự án gồm hai phần:
+Dự án gồm Frontend và hệ thống Backend Microservices:
 
 | Phần | Công nghệ | Cổng mặc định |
 |------|-----------|---------------|
-| **BE** — API backend | ASP.NET Core .NET 8, Dapper, SQL Server | `http://localhost:5069` |
+| **ApiGateway** — Cổng điều phối API | ASP.NET Core .NET 8 Reverse Proxy Gateway | `http://localhost:5069` |
+| **Catalog.API** — Microservice Sản phẩm | ASP.NET Core .NET 8, DDD, CQRS, Clean Architecture, Dapper, RabbitMQ | `http://localhost:5071` |
+| **Ordering.API** — Microservice Xuất hàng | ASP.NET Core .NET 8, DDD, CQRS, Clean Architecture, Dapper, RabbitMQ | `http://localhost:5072` |
 | **FE** — Giao diện | React 18, TypeScript, Vite, Redux, MUI | `http://localhost:5173` |
+
+> Chi tiết cấu trúc phân tầng `Controllers`, `Application`, `Domain`, `Repositories`, `ApiGateway` và luồng sự kiện RabbitMQ xem tại [BE/ARCHITECTURE.md](BE/ARCHITECTURE.md).
 
 ---
 
@@ -23,7 +27,7 @@ Dự án gồm hai phần:
 
 Chạy **toàn bộ** các file migration theo thứ tự số trong SQL Server Management Studio (hoặc `sqlcmd`):
 
-```
+```text
 BE/Migrations/202611020001_InitialCreate.sql
 BE/Migrations/202611020002_SeedSampleData.sql
 BE/Migrations/202611030001_AddIsActiveToMasterProductAndSaleOut.sql
@@ -33,6 +37,7 @@ BE/Migrations/202611040002_RecalculateSaleOutBoxQuantity.sql
 BE/Migrations/202611060001_AddSaleOutNo.sql
 BE/Migrations/202611060002_BackfillSaleOutNo.sql
 BE/Migrations/202611060003_GroupSaleOutProductsByOrder.sql
+BE/Migrations/202611080001_CreateFnSaleOutReport.sql
 ```
 
 Các script có kiểm tra `IF NOT EXISTS` — chạy lại vẫn an toàn, không tạo trùng.
@@ -41,7 +46,9 @@ Các script có kiểm tra `IF NOT EXISTS` — chạy lại vẫn an toàn, khô
 
 ## 2. Cấu hình Backend (BE)
 
-Tạo file **`BE/appsettings.Development.json`** (file này không có trong repo vì chứa thông tin kết nối):
+Tạo hoặc cập nhật file **`appsettings.Development.json`** trong cả 2 service:
+- `BE/Catalog.API/appsettings.Development.json`
+- `BE/Ordering.API/appsettings.Development.json`
 
 ```json
 {
@@ -57,24 +64,23 @@ Tạo file **`BE/appsettings.Development.json`** (file này không có trong rep
 }
 ```
 
-> **Thay thế:**
-> - `<TÊN_SERVER>` → tên SQL Server instance của bạn, ví dụ `localhost\SQLEXPRESS` hoặc `localhost\MSSQLSERVER`
-> - `<USER>` / `<PASSWORD>` → tài khoản SQL Server của bạn
->
-> Nếu dùng **Windows Authentication**, thay toàn bộ chuỗi kết nối thành:
-> ```
-> Server=<TÊN_SERVER>;Database=SmallProject;Trusted_Connection=True;TrustServerCertificate=True;
-> ```
-
-### Chạy BE
+### Chạy các Microservices và API Gateway
 
 ```powershell
-cd BE
-dotnet restore
+# Terminal 1 — Catalog.API (http://localhost:5071)
+cd BE/Catalog.API
+dotnet run
+
+# Terminal 2 — Ordering.API (http://localhost:5072)
+cd BE/Ordering.API
+dotnet run
+
+# Terminal 3 — ApiGateway (http://localhost:5069)
+cd BE/ApiGateway
 dotnet run
 ```
 
-API chạy tại `http://localhost:5069` — mở `http://localhost:5069/swagger` để xem tài liệu API.
+API Gateway chạy tại `http://localhost:5069` và tự động điều phối request từ Frontend sang `Catalog.API` (`:5071`) và `Ordering.API` (`:5072`).
 
 ---
 
@@ -86,8 +92,6 @@ Tạo file **`FE/.env`** (file này không có trong repo):
 VITE_API_BASE_URL=http://localhost:5069
 ```
 
-> Nếu BE chạy trên cổng khác hoặc server khác, thay URL tương ứng.
-
 ### Chạy FE
 
 ```powershell
@@ -97,29 +101,3 @@ npm run dev
 ```
 
 Mở trình duyệt tại `http://localhost:5173`.
-
----
-
-## Tóm tắt nhanh
-
-```
-# Terminal 1 — Backend
-cd BE
-# (tạo appsettings.Development.json trước)
-dotnet restore
-dotnet run
-
-# Terminal 2 — Frontend
-cd FE
-# (tạo .env trước)
-npm install
-npm run dev
-```
-
----
-
-## Lưu ý
-
-- Chạy BE **trước** khi mở FE để tránh lỗi kết nối API.
-- Nếu SQL Server yêu cầu mã hóa TLS, thêm `;Encrypt=True;` vào connection string.
-- Font **Times New Roman** cần được cài trên máy chạy BE để xuất PDF đúng định dạng (mặc định đã có trên Windows).

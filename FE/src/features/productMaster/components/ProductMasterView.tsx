@@ -28,6 +28,8 @@ import {
   Typography,
 } from '@mui/material'
 import Swal from 'sweetalert2'
+import { useAppDispatch } from '../../../app/hooks'
+import { baseApi } from '../../../shared/api/baseApi'
 import { ApiRequestError } from '../../../shared/api/httpClient'
 import { readSearchablePageState, writeSearchablePageState } from '../../../shared/routing/searchablePageState'
 import { deleteProduct, downloadProductTemplate, fetchProducts } from '../api/productsApi'
@@ -54,6 +56,7 @@ type ProductQuery = {
 
 export default function ProductMasterView() {
   const { t, i18n } = useTranslation()
+  const dispatch = useAppDispatch()
   const [query, setQuery] = useState<ProductQuery>(() => readSearchablePageState<ProductSearchField>(
     { page: 1, pageSize: DEFAULT_PAGE_SIZE, searchField: 'ProductName', searchValue: '' },
     PRODUCT_SEARCH_FIELDS.map((field) => field.value),
@@ -185,6 +188,7 @@ export default function ProductMasterView() {
         showConfirmButton: false,
       })
 
+      dispatch(baseApi.util.invalidateTags(['ActiveProducts']))
       setRetryCount((count) => count + 1)
     } catch (error: unknown) {
       if (error instanceof ApiRequestError) {
@@ -532,6 +536,7 @@ export default function ProductMasterView() {
         onClose={() => setIsImportOpen(false)}
         onSuccess={() => {
           setQuery((currentQuery) => ({ ...currentQuery, page: 1 }))
+          dispatch(baseApi.util.invalidateTags(['ActiveProducts']))
           setRetryCount((count) => count + 1)
         }}
       />
@@ -541,6 +546,7 @@ export default function ProductMasterView() {
         onClose={() => setIsCreateOpen(false)}
         onSuccess={() => {
           setQuery((currentQuery) => ({ ...currentQuery, page: 1 }))
+          dispatch(baseApi.util.invalidateTags(['ActiveProducts']))
           setRetryCount((count) => count + 1)
         }}
       />
@@ -553,6 +559,7 @@ export default function ProductMasterView() {
           setEditingProduct(null)
         }}
         onSuccess={() => {
+          dispatch(baseApi.util.invalidateTags(['ActiveProducts']))
           setRetryCount((count) => count + 1)
         }}
       />

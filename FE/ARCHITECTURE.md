@@ -46,3 +46,11 @@ Các trang ghép nối những component của tính năng. Component của tín
 - Gọi SweetAlert2 từ tính năng cần xác nhận hoặc thông báo; không gọi thư viện này trong HTTP client dùng chung.
 - Đặt tên React component và kiểu dữ liệu theo PascalCase. Đặt tên biến, hàm và hook theo camelCase; tên custom hook bắt đầu bằng `use`.
 - Không tạo các thư mục kiểu backend như `Controllers`, `Services` hoặc `Repositories` trong frontend.
+
+## State và dữ liệu từ API
+
+- Dùng `useState` cho trạng thái giao diện ngắn hạn, như nội dung biểu mẫu, lỗi từng trường, hộp thoại và dòng đang mở rộng.
+- Dùng RTK Query cho dữ liệu API cần cache hoặc được nhiều component dùng chung. `shared/api/baseApi.ts` cấu hình base query và tag; từng feature khai báo endpoint trong `features/<feature>/api`.
+- Đăng ký reducer và middleware của `baseApi` một lần trong `app/store.ts`.
+- Dùng tag để làm mới cache sau các thao tác ghi. Danh sách sản phẩm hoạt động dùng chung trong hộp thoại Sale Out; danh sách đơn Sale Out được cache theo tham số phân trang và tìm kiếm.
+- Bật `setupListeners` để truy vấn sản phẩm đang mở được tải lại khi quay lại tab; hộp thoại dùng cache còn hiệu lực khi mở lại.

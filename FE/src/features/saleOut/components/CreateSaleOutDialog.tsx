@@ -16,13 +16,11 @@ import {
 } from '@mui/material'
 import Swal from 'sweetalert2'
 import { ApiRequestError } from '../../../shared/api/httpClient'
-import { fetchProducts } from '../../productMaster/api/productsApi'
-import type { ProductListItem, ProductSearchResponse } from '../../productMaster/model/productTypes'
+import { useGetActiveProductsQuery } from '../../productMaster/api/productQueries'
 import { createSaleOut } from '../api/saleOutApi'
 import type { CreateSaleOutRequest } from '../model/saleOutTypes'
 import SaleOutItemsEditor, { type SaleOutItemDraft, type SaleOutItemDraftErrors, type SaleOutItemEditableField } from './SaleOutItemsEditor'
 
-const PRODUCT_PAGE_SIZE = 200
 const CUSTOMER_PO_NO_MAX_LENGTH = 50
 const CUSTOMER_NAME_MAX_LENGTH = 200
 
@@ -39,16 +37,22 @@ const INITIAL_HEADER: HeaderForm = { customerPoNo: '', orderDate: '', customerNa
 
 export default function CreateSaleOutDialog({ open, onClose, onSuccess }: CreateSaleOutDialogProps) {
   const { t } = useTranslation()
+  const {
+    data: products = [],
+    isLoading: isLoadingProducts,
+    isError: hasProductLoadError,
+  } = useGetActiveProductsQuery(undefined, {
+    skip: !open,
+    refetchOnFocus: true,
+  })
   const [header, setHeader] = useState<HeaderForm>(INITIAL_HEADER)
   const [headerErrors, setHeaderErrors] = useState<HeaderErrors>({})
   const [items, setItems] = useState<SaleOutItemDraft[]>([createDraftItem()])
   const [itemErrors, setItemErrors] = useState<Record<string, SaleOutItemDraftErrors>>({})
-  const [products, setProducts] = useState<ProductListItem[]>([])
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
-  const [productLoadError, setProductLoadError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState('')
   const [isSubmissionConflict, setIsSubmissionConflict] = useState(false)
+  const productLoadError = hasProductLoadError ? t('saleOut.createDialog.productLoadError') : ''
 
   useEffect(() => {
     if (!open) return
@@ -60,21 +64,6 @@ export default function CreateSaleOutDialog({ open, onClose, onSuccess }: Create
     setIsSubmitting(false)
     setSubmissionError('')
     setIsSubmissionConflict(false)
-    setProducts([])
-    setProductLoadError('')
-
-    const controller = new AbortController()
-    setIsLoadingProducts(true)
-    void fetchActiveProducts(controller.signal)
-      .then(setProducts)
-      .catch(() => {
-        if (!controller.signal.aborted) setProductLoadError(t('saleOut.createDialog.productLoadError'))
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsLoadingProducts(false)
-      })
-
-    return () => controller.abort()
   }, [open, t])
 
   const handleHeaderChange = (field: keyof HeaderForm, value: string) => {
@@ -221,12 +210,3 @@ function createDraftItem(): SaleOutItemDraft {
   return { key: `${Date.now()}-${Math.random()}`, productId: '', quantity: '', quantityPerBox: '', price: '' }
 }
 
-async function fetchActiveProducts(signal: AbortSignal): Promise<ProductListItem[]> {
-  const firstPage = await fetchProductsPage(1, signal)
-  const remainingPages = await Promise.all(Array.from({ length: Math.max(firstPage.totalPages - 1, 0) }, (_, index) => fetchProductsPage(index + 2, signal)))
-  return [firstPage, ...remainingPages].flatMap((page) => page.items).filter((product) => product.isActive)
-}
-
-function fetchProductsPage(page: number, signal: AbortSignal): Promise<ProductSearchResponse> {
-  return fetchProducts({ page, pageSize: PRODUCT_PAGE_SIZE, searchField: 'ProductCode', searchValue: '' }, signal)
-}

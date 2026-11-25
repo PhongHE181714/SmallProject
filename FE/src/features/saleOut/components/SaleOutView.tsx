@@ -13,6 +13,8 @@ import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import Swal from 'sweetalert2'
+import { useAppDispatch } from '../../../app/hooks'
+import { baseApi } from '../../../shared/api/baseApi'
 import { readSearchablePageState, writeSearchablePageState } from '../../../shared/routing/searchablePageState'
 import {
   Box,
@@ -35,17 +37,18 @@ import {
   Typography,
 } from '@mui/material'
 import { ApiRequestError } from '../../../shared/api/httpClient'
-import { deleteSaleOutOrder, downloadSaleOutTemplate, fetchSaleOuts } from '../api/saleOutApi'
-import { SALE_OUT_SEARCH_FIELDS, type SaleOutOrderListItem, type SaleOutSearchField, type SaleOutSearchResponse } from '../model/saleOutTypes'
+import { deleteSaleOutOrder, downloadSaleOutTemplate } from '../api/saleOutApi'
+import { useGetSaleOutsQuery } from '../api/saleOutQueries'
+import { SALE_OUT_SEARCH_FIELDS, type SaleOutOrderListItem, type SaleOutSearchField } from '../model/saleOutTypes'
 import CreateSaleOutDialog from './CreateSaleOutDialog'
 import EditSaleOutDialog from './EditSaleOutDialog'
 import ImportSaleOutDialog from './ImportSaleOutDialog'
 import PrintSaleOutDialog from './PrintSaleOutDialog'
 import SaleOutRevenueReportDialog from './SaleOutRevenueReportDialog'
 
-const DEFAULT_PAGE_SIZE = 50
+const DEFAULT_PAGE_SIZE = 10
 const MAX_PAGE_SIZE = 200
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+const PAGE_SIZE_OPTIONS = [5, 10, 15, 20]
 const TABLE_COLUMN_COUNT = 8
 
 type SaleOutQuery = {
@@ -57,6 +60,7 @@ type SaleOutQuery = {
 
 export default function SaleOutView() {
   const { t, i18n } = useTranslation()
+  const dispatch = useAppDispatch()
   const [query, setQuery] = useState<SaleOutQuery>(() => readSearchablePageState<SaleOutSearchField>(
     { page: 1, pageSize: DEFAULT_PAGE_SIZE, searchField: 'CustomerPoNo', searchValue: '' },
     SALE_OUT_SEARCH_FIELDS.map((field) => field.value),
@@ -70,10 +74,15 @@ export default function SaleOutView() {
   const [customPageSize, setCustomPageSize] = useState(() =>
     PAGE_SIZE_OPTIONS.includes(query.pageSize) ? '' : String(query.pageSize),
   )
-  const [result, setResult] = useState<SaleOutSearchResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [retryCount, setRetryCount] = useState(0)
+  const {
+    currentData: result,
+    isLoading: isInitialLoading,
+    isFetching,
+    error: queryError,
+    refetch,
+  } = useGetSaleOutsQuery(query)
+  const isLoading = isInitialLoading || isFetching
+  const errorMessage = queryError ? getSaleOutErrorMessage(queryError, t) : ''
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
@@ -93,32 +102,6 @@ export default function SaleOutView() {
   useEffect(() => {
     setExpandedOrders(new Set())
   }, [query])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    setIsLoading(true)
-    setErrorMessage('')
-
-    void fetchSaleOuts(query, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setResult(data)
-        }
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
-          setResult(null)
-          setErrorMessage(getSaleOutErrorMessage(error, t))
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setIsLoading(false)
-        }
-      })
-
-    return () => controller.abort()
-  }, [query, retryCount, t])
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -189,7 +172,7 @@ export default function SaleOutView() {
         showConfirmButton: false,
       })
       setQuery((currentQuery) => ({ ...currentQuery, page: 1 }))
-      setRetryCount((count) => count + 1)
+      dispatch(baseApi.util.invalidateTags(['SaleOuts']))
     } catch (error: unknown) {
       const message = error instanceof ApiRequestError && error.detail
         ? error.detail
@@ -438,7 +421,7 @@ export default function SaleOutView() {
                           size="small"
                           variant="outlined"
                           className="product-table__retry"
-                          onClick={() => setRetryCount((count) => count + 1)}
+                          onClick={() => void refetch()}
                         >
                           {t('saleOut.retry')}
                         </Button>
@@ -572,20 +555,20 @@ export default function SaleOutView() {
           onClose={() => setIsCreateDialogOpen(false)}
           onSuccess={() => {
             setQuery((currentQuery) => ({ ...currentQuery, page: 1 }))
-            setRetryCount((count) => count + 1)
+            dispatch(baseApi.util.invalidateTags(['SaleOuts']))
           }}
         />
         <EditSaleOutDialog
           saleOut={saleOutToEdit}
           onClose={() => setSaleOutToEdit(null)}
-          onSuccess={() => setRetryCount((count) => count + 1)}
+          onSuccess={() => dispatch(baseApi.util.invalidateTags(['SaleOuts']))}
         />
         <ImportSaleOutDialog
           open={isImportDialogOpen}
           onClose={() => setIsImportDialogOpen(false)}
           onSuccess={() => {
             setQuery((currentQuery) => ({ ...currentQuery, page: 1 }))
-            setRetryCount((count) => count + 1)
+            dispatch(baseApi.util.invalidateTags(['SaleOuts']))
           }}
         />
         <PrintSaleOutDialog
@@ -642,21 +625,30 @@ function getLocale(language: string) {
 }
 
 function getSaleOutErrorMessage(error: unknown, translate: (key: string) => string) {
-  if (error instanceof ApiRequestError) {
-    if (error.status === 400) {
+  const status = error instanceof ApiRequestError
+    ? error.status
+    : typeof error === 'object' && error !== null && 'status' in error && typeof error.status === 'number'
+      ? error.status
+      : undefined
+
+  if (status !== undefined) {
+    if (status === 400) {
       return translate('saleOut.invalidSearch')
     }
 
-    if (error.status === 404) {
+    if (status === 404) {
       return translate('saleOut.apiNotFound')
     }
 
-    if (error.status >= 500) {
+    if (status >= 500) {
       return translate('saleOut.serverError')
     }
   }
 
-  return error instanceof TypeError
+  const errorStatus = typeof error === 'object' && error !== null && 'status' in error
+    ? error.status
+    : undefined
+  return error instanceof TypeError || errorStatus === 'FETCH_ERROR'
     ? translate('saleOut.connectionError')
     : translate('saleOut.unexpectedError')
 }

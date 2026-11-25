@@ -16,13 +16,10 @@ import {
 } from '@mui/material'
 import Swal from 'sweetalert2'
 import { ApiRequestError } from '../../../shared/api/httpClient'
-import { fetchProducts } from '../../productMaster/api/productsApi'
-import type { ProductListItem, ProductSearchResponse } from '../../productMaster/model/productTypes'
+import { useGetActiveProductsQuery } from '../../productMaster/api/productQueries'
 import { fetchSaleOutOrder, updateSaleOutOrder } from '../api/saleOutApi'
 import type { SaleOutListItem, SaleOutOrderListItem, UpdateSaleOutOrderRequest } from '../model/saleOutTypes'
 import SaleOutItemsEditor, { type SaleOutItemDraft, type SaleOutItemDraftErrors, type SaleOutItemEditableField } from './SaleOutItemsEditor'
-
-const PRODUCT_PAGE_SIZE = 200
 
 interface EditSaleOutDialogProps {
   saleOut: SaleOutOrderListItem | null
@@ -32,14 +29,23 @@ interface EditSaleOutDialogProps {
 
 export default function EditSaleOutDialog({ saleOut, onClose, onSuccess }: EditSaleOutDialogProps) {
   const { t } = useTranslation()
+  const {
+    data: products = [],
+    isLoading: isLoadingProducts,
+    isError: hasProductLoadError,
+  } = useGetActiveProductsQuery(undefined, {
+    skip: !saleOut,
+    refetchOnFocus: true,
+  })
   const [items, setItems] = useState<SaleOutItemDraft[]>([])
   const [itemErrors, setItemErrors] = useState<Record<string, SaleOutItemDraftErrors>>({})
   const [orderItems, setOrderItems] = useState<SaleOutListItem[]>([])
-  const [products, setProducts] = useState<ProductListItem[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState('')
+  const isLoading = isLoadingOrder || isLoadingProducts
+  const displayedLoadError = loadError || (hasProductLoadError ? t('saleOut.editDialog.loadError') : '')
 
   useEffect(() => {
     if (!saleOut) return
@@ -48,19 +54,17 @@ export default function EditSaleOutDialog({ saleOut, onClose, onSuccess }: EditS
     setItems([])
     setItemErrors({})
     setOrderItems([])
-    setProducts([])
     setLoadError('')
     setSubmissionError('')
-    setIsLoading(true)
+    setIsLoadingOrder(true)
 
     const orderPromise = saleOut.saleOutNo
       ? fetchSaleOutOrder(saleOut.saleOutNo, controller.signal)
       : Promise.resolve(saleOut.products)
-    void Promise.all([orderPromise, fetchActiveProducts(controller.signal)])
-      .then(([loadedOrder, loadedProducts]) => {
+    void orderPromise
+      .then((loadedOrder) => {
         if (controller.signal.aborted) return
         setOrderItems(loadedOrder)
-        setProducts(loadedProducts)
         setItems(loadedOrder.map((item) => ({
           key: item.id,
           id: item.id,
@@ -76,7 +80,7 @@ export default function EditSaleOutDialog({ saleOut, onClose, onSuccess }: EditS
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false)
+        if (!controller.signal.aborted) setIsLoadingOrder(false)
       })
 
     return () => controller.abort()
@@ -159,7 +163,7 @@ export default function EditSaleOutDialog({ saleOut, onClose, onSuccess }: EditS
       <form onSubmit={handleSubmit} noValidate>
         <DialogContent className="product-dialog__content">
           {submissionError && <Alert severity="error" sx={{ mb: 2 }}>{submissionError}</Alert>}
-          {loadError && <Alert severity="error" sx={{ mb: 2 }}>{loadError}</Alert>}
+          {displayedLoadError && <Alert severity="error" sx={{ mb: 2 }}>{displayedLoadError}</Alert>}
           <div className="sale-out-order-header sale-out-order-header--readonly">
             <ReadOnlyHeader label={t('saleOut.fields.saleOutNo')} value={saleOut?.saleOutNo} />
             <ReadOnlyHeader label={t('saleOut.fields.customerPoNo')} value={orderItems[0]?.customerPoNo ?? saleOut?.customerPoNo} />
@@ -184,7 +188,7 @@ export default function EditSaleOutDialog({ saleOut, onClose, onSuccess }: EditS
         </DialogContent>
         <DialogActions className="product-dialog__actions">
           <Button type="button" variant="outlined" onClick={handleClose} disabled={isSubmitting} className="product-button product-button--quiet">{t('saleOut.editDialog.actions.close')}</Button>
-          <Button type="submit" variant="contained" disabled={isSubmitting || isLoading || Boolean(loadError) || items.length === 0 || !saleOut?.saleOutNo} className="product-button product-button--primary" startIcon={isSubmitting ? <CircularProgress size={16} color="inherit" /> : null}>
+          <Button type="submit" variant="contained" disabled={isSubmitting || isLoading || Boolean(displayedLoadError) || items.length === 0 || !saleOut?.saleOutNo} className="product-button product-button--primary" startIcon={isSubmitting ? <CircularProgress size={16} color="inherit" /> : null}>
             {isSubmitting ? t('saleOut.editDialog.actions.saving') : t('saleOut.editDialog.actions.save')}
           </Button>
         </DialogActions>
@@ -207,12 +211,3 @@ function formatDate(value?: string | null): string {
   return parts ? `${parts[3]}/${parts[2]}/${parts[1]}` : value
 }
 
-async function fetchActiveProducts(signal: AbortSignal): Promise<ProductListItem[]> {
-  const firstPage = await fetchProductsPage(1, signal)
-  const remainingPages = await Promise.all(Array.from({ length: Math.max(firstPage.totalPages - 1, 0) }, (_, index) => fetchProductsPage(index + 2, signal)))
-  return [firstPage, ...remainingPages].flatMap((page) => page.items).filter((product) => product.isActive)
-}
-
-function fetchProductsPage(page: number, signal: AbortSignal): Promise<ProductSearchResponse> {
-  return fetchProducts({ page, pageSize: PRODUCT_PAGE_SIZE, searchField: 'ProductCode', searchValue: '' }, signal)
-}

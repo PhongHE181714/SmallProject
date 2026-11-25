@@ -2,6 +2,165 @@
 
 File này ghi lại các thay đổi được thực hiện theo prompt làm thay đổi mã nguồn, cấu hình, script database hoặc kiến trúc dự án. Thêm mục mới nhất lên đầu danh sách.
 
+## 2026-11-17 - Sửa lỗi thiếu namespace ILogger trong Mediator và quyền truy cập Entity.Id
+
+Mục đích: Khắc phục lỗi biên dịch `CS0246` (`ILogger<>`) trong `BuildingBlocks/CQRS/Mediator.cs` và `CS0272` (`Entity<TId>.Id`) khi chạy `dotnet run`.
+
+Thay đổi:
+- Thêm `using Microsoft.Extensions.DependencyInjection;` và `using Microsoft.Extensions.Logging;` vào `BE/BuildingBlocks/CQRS/Mediator.cs`.
+- Mở `public init;` cho `Entity<TId>.Id` trong `BE/BuildingBlocks/SharedKernel/Entity.cs`.
+
+File và thư mục bị ảnh hưởng:
+- `BE/BuildingBlocks/CQRS/Mediator.cs`
+- `BE/BuildingBlocks/SharedKernel/Entity.cs`
+- `CHANGELOG.md`
+
+Kiểm tra: Đã chạy `dotnet build BE/SmallProject.sln --no-restore` thành công (0 Warning, 0 Error).
+
+## 2026-11-17 - Bỏ thư mục trung gian Services và đổi tên 2 thư mục thành Catalog.API, Ordering.API
+
+Mục đích: Đưa 2 project Microservice ra trực tiếp dưới `BE/` với tên thư mục `Catalog.API` và `Ordering.API`, bỏ thư mục trung gian `Services/`.
+
+Thay đổi:
+- Chuyển `BE/Services/CatalogService` thành `BE/Catalog.API` và `BE/Services/OrderingService` thành `BE/Ordering.API`, xóa thư mục `BE/Services`.
+- Cập nhật đường dẫn `ProjectReference` trong `Catalog.API.csproj`, `Ordering.API.csproj` và đường dẫn project trong `BE/SmallProject.sln`.
+- Cập nhật tài liệu `BE/ARCHITECTURE.md` và `README.md`.
+
+File và thư mục bị ảnh hưởng:
+- `BE/Catalog.API/`
+- `BE/Ordering.API/`
+- `BE/SmallProject.sln`
+- `BE/ARCHITECTURE.md`
+- `README.md`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
+## 2026-11-17 - Chuyển thư mục bin và obj lên đầu mỗi project bằng Directory.Build.props
+
+Mục đích: Tránh việc hai thư mục `bin` và `obj` nằm xen lẫn giữa các thư mục mã nguồn (`Application`, `Controllers`, `Domain`, `Repositories`) trong từng project.
+
+Thay đổi:
+- Thêm `BE/Directory.Build.props` cấu hình `<BaseOutputPath>.bin\</BaseOutputPath>` và `<BaseIntermediateOutputPath>.obj\</BaseIntermediateOutputPath>` để mọi project trong `BE` đặt đầu ra biên dịch vào `.bin` và `.obj` (luôn xếp ở đầu danh sách thư mục).
+- Xóa `BE/bin` và `BE/obj` cũ ở thư mục gốc `BE/`, đồng thời chuyển `bin`/`obj` của `ApiGateway`, `BuildingBlocks`, `CatalogService`, `OrderingService` sang `.bin`/`.obj`.
+- Cập nhật `.gitignore` bổ sung `.bin/` và `.obj/`.
+
+File và thư mục bị ảnh hưởng:
+- `BE/Directory.Build.props`
+- `.gitignore`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
+## 2026-11-17 - Tách các API độc lập cho từng cục nghiệp vụ, thêm API Gateway, Thin Controller và tự động quét DI
+
+Mục đích: Tách mỗi cục nghiệp vụ thành một Web API project độc lập (`Catalog.API` và `Ordering.API`), bổ sung `ApiGateway` điều phối request, làm gọn các Controller thành Thin Controller thực thụ (chuyển toàn bộ xử lý lỗi vào `ApiExceptionHandlingMiddleware`) và rút gọn `Program.cs` bằng cơ chế tự động quét Assembly đăng ký DI.
+
+Thay đổi:
+- Tạo Solution `BE/SmallProject.sln` và `BE/NuGet.Config` gồm 4 project: `BuildingBlocks.csproj`, `Catalog.API.csproj`, `Ordering.API.csproj`, `ApiGateway.csproj`.
+- Thêm `BE/ApiGateway/` chạy tại cổng `5069` với `ApiGatewayProxyMiddleware` và `ApiGatewayHostExtensions` điều phối `/api/products`, `/api/database` sang `Catalog.API` (`:5071`) và `/api/sale-outs` sang `Ordering.API` (`:5072`).
+- Thêm `ApiExceptionHandlingMiddleware`, `ProblemExceptionFactory` và `PayloadTooLargeException` trong `BuildingBlocks` để bỏ toàn bộ khối `try/catch` khỏi `ProductsController` và `SaleOutsController`, giúp mỗi action chỉ còn 1–2 dòng gọi `ISender`.
+- Thêm `MicroserviceHostExtensions` (`AddMicroserviceHost`, `UseMicroserviceHost`, `RegisterAssemblyHandlersAndServices`) tự động quét Assembly đăng ký mọi `ICommandHandler`, `IQueryHandler`, `IIntegrationEventHandler`, `*Repository` và `*Service`, giúp `Program.cs` chỉ còn vài dòng và không phải khai báo thủ công khi thêm class mới.
+- Thêm `EventBusConsumerController` và cơ chế chuyển tiếp sự kiện liên tiến trình trong `RabbitMqEventBus` giữa `Catalog.API` và `Ordering.API`.
+- Cập nhật `BE/ARCHITECTURE.md` và `README.md`.
+
+File và thư mục bị ảnh hưởng:
+- `BE/SmallProject.sln`
+- `BE/NuGet.Config`
+- `BE/BuildingBlocks/`
+- `BE/ApiGateway/`
+- `BE/Services/CatalogService/`
+- `BE/Services/OrderingService/`
+- `BE/ARCHITECTURE.md`
+- `README.md`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
+## 2026-11-17 - Chuyển kiến trúc Backend sang Microservices + DDD + CQRS + Clean Architecture + RabbitMQ (dùng chung DB)
+
+Mục đích: Tái cấu trúc phần Backend từ Monolithic 3-Layer sang mô hình Microservices theo Bounded Context (`CatalogService`, `OrderingService`, `DatabaseHealthService`) kết hợp DDD, CQRS, Clean Architecture (`Controllers`, `Application`, `Domain`, `Repositories`) và RabbitMQ EventBus nhưng tạm thời vẫn dùng chung cơ sở dữ liệu SQL Server, đồng thời cập nhật tài liệu `.md`.
+
+Thay đổi:
+- Thêm `BE/BuildingBlocks/SharedKernel` (`Entity`, `AggregateRoot`, `ValueObject`, `IDomainEvent`, `PagedResult`).
+- Thêm `BE/BuildingBlocks/CQRS` (`ICommand`, `ICommandHandler`, `IQuery`, `IQueryHandler`, `ISender`, `Mediator`, `Unit`).
+- Thêm `BE/BuildingBlocks/EventBus` (`IEventBus`, `IntegrationEvent`, `IIntegrationEventHandler`, `RabbitMqOptions`, `RabbitMqEventBus`, `RabbitMqBackgroundConsumer`, `ProductUpsertedIntegrationEvent`, `ProductDeletedIntegrationEvent`).
+- Tách `CatalogService` (`BE/Services/CatalogService`) và `OrderingService` (`BE/Services/OrderingService`) cùng `DatabaseHealthService` (`BE/Services/DatabaseHealthService`) theo 4 lớp `Controllers`, `Application`, `Domain`, `Repositories`.
+- Đồng bộ bản sao sản phẩm (`ProductSnapshot`) từ `CatalogService` sang `OrderingService` qua RabbitMQ EventBus (`ProductUpsertedConsumer`, `ProductDeletedConsumer`) kết hợp fallback đọc từ database dùng chung.
+- Cập nhật `BE/DependencyInjection.cs`, `BE/Program.cs`, `BE/appsettings.json`, `BE/appsettings.Development.example.json`, `BE/ARCHITECTURE.md` và `README.md`.
+
+File và thư mục bị ảnh hưởng:
+- `BE/BuildingBlocks/`
+- `BE/Services/CatalogService/`
+- `BE/Services/OrderingService/`
+- `BE/Services/DatabaseHealthService/`
+- `BE/DependencyInjection.cs`
+- `BE/Program.cs`
+- `BE/appsettings.json`
+- `BE/appsettings.Development.example.json`
+- `BE/ARCHITECTURE.md`
+- `README.md`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
+## 2026-11-11 - Dùng lại cache sản phẩm khi mở hộp thoại Sale Out
+
+Mục đích: Tránh gọi API lại mỗi lần mở hộp thoại tạo hoặc sửa Sale Out nếu cache sản phẩm còn hiệu lực.
+
+Thay đổi:
+- Bỏ cấu hình refetch mỗi lần hộp thoại được mở; giữ cập nhật khi truy vấn đang hoạt động và tab được focus lại.
+
+File và thư mục bị ảnh hưởng:
+- `FE/src/features/saleOut/components/CreateSaleOutDialog.tsx`
+- `FE/src/features/saleOut/components/EditSaleOutDialog.tsx`
+- `FE/ARCHITECTURE.md`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
+## 2026-11-11 - Làm mới danh sách sản phẩm khi mở hộp thoại Sale Out
+
+Mục đích: Giúp Sale Out nhận danh sách sản phẩm mới mà không cần tải lại toàn bộ trang, kể cả khi thay đổi sản phẩm đến từ tab khác.
+
+Thay đổi:
+- Bật listener focus/reconnect cho RTK Query.
+- Hộp thoại tạo và sửa Sale Out tải lại danh sách sản phẩm khi mở và khi người dùng quay lại tab.
+
+File và thư mục bị ảnh hưởng:
+- `FE/src/app/store.ts`
+- `FE/src/features/saleOut/components/CreateSaleOutDialog.tsx`
+- `FE/src/features/saleOut/components/EditSaleOutDialog.tsx`
+- `FE/ARCHITECTURE.md`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
+## 2026-11-11 - Dùng RTK Query cho dữ liệu Product và Sale Out được chia sẻ
+
+Mục đích: Áp dụng Redux Toolkit vào danh sách sản phẩm dùng chung trong các hộp thoại Sale Out và danh sách đơn Sale Out theo truy vấn.
+
+Thay đổi:
+- Thêm `baseApi` RTK Query, cache danh sách sản phẩm đang hoạt động và cache danh sách Sale Out theo bộ lọc/phân trang.
+- Dùng chung cache sản phẩm trong hộp thoại tạo/sửa Sale Out; làm mới cache sau các thao tác Product Master.
+- Dùng cache Sale Out trong màn hình danh sách và làm mới sau tạo, sửa, xóa hoặc import đơn.
+- Giữ state biểu mẫu và giao diện cục bộ; không thay đổi backend.
+- Cập nhật tài liệu kiến trúc frontend.
+
+File và thư mục bị ảnh hưởng:
+- `FE/src/shared/api/baseApi.ts`
+- `FE/src/features/productMaster/api/productQueries.ts`
+- `FE/src/features/productMaster/components/ProductMasterView.tsx`
+- `FE/src/features/saleOut/api/saleOutQueries.ts`
+- `FE/src/features/saleOut/components/CreateSaleOutDialog.tsx`
+- `FE/src/features/saleOut/components/EditSaleOutDialog.tsx`
+- `FE/src/features/saleOut/components/SaleOutView.tsx`
+- `FE/src/app/store.ts`
+- `FE/ARCHITECTURE.md`
+- `CHANGELOG.md`
+
+Kiểm tra: Chưa chạy build hoặc test theo hướng dẫn của workspace.
+
 ## 2026-11-08 - Hiển thị thông báo không có dữ liệu trong popup báo cáo
 
 Mục đích: Giữ thông báo không có bản ghi bên trong popup chọn khoảng ngày báo cáo doanh thu.
